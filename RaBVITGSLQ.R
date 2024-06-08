@@ -18,7 +18,7 @@ a<-(2-0.5*rho)
 #a<-2
 b1<-1
 b2<-1
-dt <- 0.01 #no converge 0.30
+dt <- 0.3
 c<-0
 
 xmin <- 0
@@ -234,7 +234,8 @@ RABVITG2D <- function(N) {
       labs(x = "x", y = expression(u[2]), title = "Player 2") +
       theme_minimal()+
       theme(text = element_text(size = 10))
-    
+    dmax1<-max(plot_data$dv_player1)*0.9
+    dmax2<-max(plot_data$dv_player2)*0.9
     # Derivative Value Function
     derivative_1 <- ggplot(plot_data, aes(x = x1)) +
       geom_line(aes(y = dv_player1), col = "blue") +
@@ -242,14 +243,18 @@ RABVITG2D <- function(N) {
       theme_minimal()+
       theme(text = element_text(size = 10))+
       theme(text = element_text(size = 10)) +
-      annotate("text", x = 0.97, y = 1.2, label = expression(M[2]), size = 3, hjust = 1) +
-      annotate("segment", x = 0.97, xend = 0.97, y = 1.5, yend = 2.5, arrow = arrow(length = unit(0.2, "cm")))
+      annotate("text", x = 0.97, y = dmax1*0.45, label = expression(M[2]), size = 3, hjust = 1) +
+      annotate("segment", x = 0.97, xend = 0.97, y = 1.5, yend = dmax1, arrow = arrow(length = unit(0.2, "cm")))
     
     derivative_2 <- ggplot(plot_data, aes(x = x1)) +
       geom_line(aes(y = dv_player2), col = "red") +
       labs(x = "x", y = expression(v[2] * "'" * (x)), title = "Player 2") +
       theme_minimal()+
-      theme(text = element_text(size = 10))
+      theme(text = element_text(size = 10))+
+      theme(text = element_text(size = 10)) +
+      annotate("text", x = 0.97, y = dmax2*0.45, label = expression(M[2]), size = 3, hjust = 1) +
+      annotate("segment", x = 0.97, xend = 0.97, y = 1.5, yend = dmax2, arrow = arrow(length = unit(0.2, "cm")))
+    
     
     
     # Convergence plot
@@ -299,29 +304,9 @@ RABVITG2D <- function(N) {
 }
 
 # Call the main function
-result <- RABVITG2D(10)
+result <- RABVITG2D(8)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-# Access individual results from the list
-v0_result <- result$v0
-k11_result <- result$k11
-k22_result <- result$k22
-its_result<- result$its
-dif_result<-result$dif
-deriv1st <- predict(sm.spline(x1, v0_result[,1]), x1, 1) #V'(y)
-deriv2st <- predict(sm.spline(x1, v0_result[,2]), x1, 1)
 
 
