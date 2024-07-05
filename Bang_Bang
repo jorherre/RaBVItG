@@ -1,0 +1,202 @@
+
+
+#RABVIT para un modelo BANG BANG
+# Load necessary libraries
+
+library(stats)
+library(ggplot2)
+library(cowplot)
+library(pracma)
+library(pspline)
+library(gridExtra)
+library(nleqslv)
+
+# Define global variables
+c1 <- 0.75
+c2 <- 0.75
+dt <- 1.05
+rho <- 0.05
+
+
+# Define the value function for player 1
+valfun2 <- function(k, x01, u01, u02, x1, v0) {
+  xnew1 <- x01 + dt * ((1 - x01) * k - x01 * u02)
+  xnew1 <- pmax(0, pmin(1, xnew1))
+  
+  val11_interp <- approx(x = x1, y = v0[, 1], xout = xnew1, method = "linear")$y
+  
+  val1 <- dt * (c1 * x01 - k) + (1 - dt * rho) * val11_interp
+  return(-val1)
+}
+
+# Define the value function for player 2
+valfun3 <- function(k, x01, u01, u02, x1, v0) {
+  xnew1 <- x01 + dt * ((1 - x01) * u01 - x01 * k)
+  xnew1 <- pmax(0, pmin(1, xnew1))
+  
+  val22_interp <- approx(x = x1, y = v0[, 2], xout = xnew1, method = "linear")$y
+  
+  val2 <- dt * (c2 * (1 - x01) - k) + (1 - dt * rho) * val22_interp
+  return(-val2)
+}
+
+
+central_difference <- function(x, y) {
+  n <- length(x)
+  dydx <- numeric(n)
+  
+  # Forward difference for the first point
+  dydx[1] <- (y[2] - y[1]) / (x[2] - x[1])
+  
+  # Central difference for the interior points
+  for (i in 2:(n-1)) {
+    dydx[i] <- (y[i+1] - y[i-1]) / (x[i+1] - x[i-1])
+  }
+  
+  # Backward difference for the last point
+  dydx[n] <- (y[n] - y[n-1]) / (x[n] - x[n-1])
+  
+  return(dydx)
+}
+
+
+
+# Define the LOVE2DSTCH function
+LOVE2DSTCH <- function(N) {
+  tol <- 0.0001
+  dif <- tol + 0.1
+  its <- 1
+  difference<-0
+  
+  # Initialize variables
+  x1 <- seq(0, 1, length.out = N)
+  uold1 <- rep(0, N)
+  uold2 <- rep(0, N)
+  v0 <- matrix(0, nrow = N, ncol = 2)
+  v0[, 1] <- dt * (c1 * x1 - uold1)
+  v0[, 2] <- dt * (c2 * (1 - x1) - uold2)
+  
+  norma <- 2
+  its <- 2
+  itmax <- 4000
+  tol <- 0.0001
+  k11 <- numeric(N)
+  k22 <- numeric(N)
+  v1 <- matrix(0, nrow = N, ncol = 2, byrow = TRUE)
+  
+  while (dif > tol) {
+    for (i in 1:N) {
+      x01 <- x1[i]
+      u01 <- uold1[i]
+      u02 <- uold2[i]
+      
+      itsg <- 1
+      tolg <- 0.00001
+      errorg <- tolg + 1
+      while (errorg > tolg & itsg < 25) {
+        itsg <- itsg + 1
+        k1 <- optimize(valfun2, interval = c(0, 1), x01 = x01, u01 = u01, u02 = u02, x1 = x1, v0 = v0)$minimum
+        k2 <- optimize(valfun3, interval = c(0, 1), x01 = x01, u01 = u01, u02 = u02, x1 = x1, v0 = v0)$minimum
+        policystar <- c(k1, k2)
+        policyold <- c(u01, u02)
+        errorg[itsg] <- max(abs(policystar - policyold))
+        errorg <- tail(errorg, 1)
+        u01 <- 0.95 * k1 + 0.05 * u01
+        u02 <- 0.95 * k2 + 0.05 * u02
+      }
+      
+      k11[i] <- u01
+      k22[i] <- u02
+      
+      v1[i, 1] <- (-valfun2(u01, x01, u01, u02, x1, v0))
+      v1[i, 2] <- (-valfun3(u02, x01, u01, u02, x1, v0))
+      
+    }
+    
+    dif <- max(abs(v1 - v0))
+    difference[its]<- dif
+    dif <- tail(dif, 1)
+    
+    deriv1st <- central_difference(x1, v1[,1])
+    deriv2st <- central_difference(x1, v1[,2])
+    
+    plot_data <- data.frame(x1 = x1, k11 = k11, k22 = k22, v1_player1 = v1[,1], v1_player2 = v1[,2],dv_player1=deriv1st,dv_player2=deriv2st)
+    plot_difference<-data.frame(iter=seq(1,its),difference)
+    
+    
+    
+    
+    control_plot1 <- ggplot(plot_data, aes(x = x1)) +
+      geom_point(aes(y = k11), col = "blue") +
+      labs(x = "x", y = expression(u[1]), title = " Player 1") +
+      theme_minimal()+
+      theme(text = element_text(size = 10))
+    
+    control_plot2 <- ggplot(plot_data, aes(x = x1)) +
+      geom_point(aes(y = k22), col = "red") +
+      labs(x = "x", y = expression(u[2]), title = "Player 2") +
+      theme_minimal()+
+      theme(text = element_text(size = 10))
+    dmax1<-max(plot_data$dv_player1)*0.9
+    dmax2<-max(plot_data$dv_player2)*0.9
+    # Derivative Value Function
+    derivative_1 <- ggplot(plot_data, aes(x = x1)) +
+      geom_point(aes(y = (c1-dv_player1)*x1+dv_player1-1), col = "blue") +
+      labs(x = "x", y = expression((c[1]-v[1] * "'" * (x)*x-v[1] * "'" * (x)-1)), title = " Player 1") +
+      theme_minimal()
+    
+    derivative_2 <- ggplot(plot_data, aes(x = x1)) +
+      geom_point(aes(y = ((c2-dv_player2)*x1-1)), col = "red") +
+      labs(x = "x", y = expression((c[2]-v[2] * "'" * (x))*x-1), title = "Player 2") +
+      theme_minimal() 
+    
+    # Convergence plot
+    convergence_plot <- ggplot(plot_difference, aes(x = iter, y = difference)) +
+      geom_line(col = "black") +
+      labs(
+        x = "Iteration",
+        y = expression(paste("||", v[it] - v[it-1], "||")),
+        title = "Convergence"
+      ) +
+      theme_minimal() +
+      theme(
+        text = element_text(size = 10, family = "Arial"),
+        axis.title.x = element_text(size = 10, face = "bold"),
+        axis.title.y = element_text(size = 12, face = "bold")
+      )
+    # Value plot
+    value_plot1 <- ggplot(plot_data, aes(x = x1)) +
+      geom_line(aes(y = v1_player1), col = "blue") +
+      labs(x = "x", y = "Value", title = " Player 1") +
+      theme_minimal()+
+      theme(text = element_text(size = 10))
+    value_plot2 <- ggplot(plot_data, aes(x = x1)) +
+      geom_line(aes(y = v1_player2), col = "red") +
+      labs(x = "x", y = "Value", title = "Player 2") +
+      theme_minimal()+
+      theme(text = element_text(size = 10))
+    
+    
+    top_row <- plot_grid(control_plot1, control_plot2, derivative_1, derivative_2, ncol = 4)
+    bottom_row <- plot_grid(convergence_plot, NULL, value_plot1, value_plot2, ncol = 4, rel_widths = c(0.5, 0, 0.25, 0.25))
+    final_plot <- plot_grid(top_row, bottom_row, nrow = 2)
+    
+    # Display the final plot
+    print(final_plot)
+    
+    
+    
+    
+    
+    
+    
+    v0 <- v1
+    
+    its <- its + 1
+  }
+  
+  return(list(v0 = v0, k11 = k11, k22 = k22))
+}
+
+# Call the main function
+result <- LOVE2DSTCH(9)
