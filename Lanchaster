@@ -11,7 +11,7 @@ library(nleqslv)
 library(akima)
 library(interp)
 # Define global variables
-rho <- 0.001
+rho <- 0.1
 pi1 <- 795
 pi2 <- 366 
 b1  <-0.0119
@@ -161,7 +161,8 @@ RABVITG2D <- function(N) {
   k11 <- numeric(N)
   k22 <- numeric(N)
   v1 <- matrix(0, nrow = N, ncol = 2, byrow = TRUE)
-  
+  L1<-0
+  L2<-0
   while (dif > tol) {
     for (i in 1:N) {
       x01 <- x1[i]
@@ -240,16 +241,38 @@ RABVITG2D <- function(N) {
       theme_minimal()+
       theme(text = element_text(size = 10))
     
-    # Derivative Value Function
-    derivative_1 <- ggplot(plot_data, aes(x = x1)) +
-      geom_line(aes(y = abs(dv_player1)), col = "blue") +
-      labs(x = "x", y = expression("|" * v[1] * "'" * (x) * "|"), title = "Player 1") +
-      theme_minimal()
+    L1[its]<-abs(max(diff(k11))/max(diff(uold1)))
+    L2[its]<-abs(max(diff(k22))/max(diff(uold2)))
     
-    derivative_2 <- ggplot(plot_data, aes(x = x1)) +
-      geom_line(aes(y = abs(dv_player2)), col = "red") +
-      labs(x = "x", y = expression("|" * v[2] * "'" * (x) * "|"), title = "Player 2") +
-      theme_minimal() 
+    plotL1 <- ggplot(plot_difference, aes(x = iter, y = L1)) +
+      geom_line(col = "blue") +
+      labs(
+        x = "Iteration",
+        y = expression(L[1]),
+        title = "L Player 1"
+      ) +
+      theme_minimal() +
+      theme(
+        text = element_text(size = 10, family = "Arial"),
+        axis.title.x = element_text(size = 10, face = "bold"),
+        axis.title.y = element_text(size = 12, face = "bold")
+      )
+    
+    
+    plotL2 <- ggplot(plot_difference, aes(x = iter, y = L2)) +
+      geom_line(col = "red") +
+      labs(
+        x = "Iteration",
+        y = expression(L[2]),
+        title = "L Player 2"
+      ) +
+      theme_minimal() +
+      theme(
+        text = element_text(size = 10, family = "Arial"),
+        axis.title.x = element_text(size = 10, face = "bold"),
+        axis.title.y = element_text(size = 12, face = "bold")
+      )    
+    
     
     
     # Convergence plot
@@ -279,9 +302,11 @@ RABVITG2D <- function(N) {
       theme(text = element_text(size = 10))
     
     
-    top_row <- plot_grid(control_plot1, control_plot2, derivative_1, derivative_2, ncol = 4)
+    
+    top_row <- plot_grid(control_plot1, control_plot2, plotL1, plotL2, ncol = 4)
     bottom_row <- plot_grid(convergence_plot, NULL, value_plot1, value_plot2, ncol = 4, rel_widths = c(0.5, 0, 0.25, 0.25))
     final_plot <- plot_grid(top_row, bottom_row, nrow = 2)
+    
     
     # Display the final plot
     print(final_plot)
@@ -294,6 +319,10 @@ RABVITG2D <- function(N) {
     v0 <- v1
     
     its <- its + 1
+    
+    uold1<-k11
+    uold2<-k22
+    
   }
   
   return(list(v0 = v0, k11 = k11, k22 = k22,its=its,dif=difference))
@@ -301,5 +330,9 @@ RABVITG2D <- function(N) {
 
 # Call the main function
 result <- RABVITG2D(5)
+
+
+
+
 
 
