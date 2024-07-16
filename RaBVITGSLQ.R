@@ -1,4 +1,4 @@
-
+ 
 #RABVITG for a STOCHASTIC Linear Quadratic Model
 # Load necessary libraries
 library(stats)
@@ -154,6 +154,10 @@ RABVITG2D <- function(N) {
   k11 <- numeric(N)
   k22 <- numeric(N)
   v1 <- matrix(0, nrow = N, ncol = 2, byrow = TRUE)
+  C<-0
+  M2<-0
+  L1<-0
+  L2<-0
   
   while (dif > tol) {
     for (i in 1:N) {
@@ -215,9 +219,23 @@ RABVITG2D <- function(N) {
     deriv1st <- central_difference(x1, v1[,1])
     deriv2st <- central_difference(x1, v1[,2])
     
+    fderiv1st<-diff(deriv1st)/2   #the inverse of f'_u is y/2
+    dvderiv1st<-diff(deriv1st)
+    C[its]<-max(fderiv1st/dvderiv1st)
+    dx1<-diff(x1)
+    M2[its]<-max(dvderiv1st/dx1)
+    L1[its]<-abs(max(diff(k11))/max(diff(uold1)))
+    L2[its]<-abs(max(diff(k22))/max(diff(uold2)))
+  
+    #derivada segunda
+    deriv21st <- central_difference(x1, deriv1st)
+    deriv22st <- central_difference(x1, deriv2st)
+
+    
+    
     ##Plots while running##
-    plot_data <- data.frame(x1 = x1, k11 = k11, k22 = k22, v1_player1 = v1[,1], v1_player2 = v1[,2],sol1=solution_NASH$x[3],sol2=solution_NASH$x[4],dv_player1=deriv1st,dv_player2=deriv2st)
-    plot_difference<-data.frame(iter=seq(1,its),difference)
+    plot_data <- data.frame(x1 = x1, k11 = k11, k22 = k22, v1_player1 = v1[,1], v1_player2 = v1[,2],sol1=solution_NASH$x[3],sol2=solution_NASH$x[4])
+    plot_difference<-data.frame(iter=seq(1,its),difference,L1,L2)
     # Control plots
       
     
@@ -237,26 +255,36 @@ RABVITG2D <- function(N) {
     dmax1<-max(plot_data$dv_player1)*0.9
     dmax2<-max(plot_data$dv_player2)*0.9
     # Derivative Value Function
-    derivative_1 <- ggplot(plot_data, aes(x = x1)) +
-      geom_line(aes(y = dv_player1), col = "blue") +
-      labs(x = "x", y = expression(v[1] * "'" * (x)), title = " Player 1") +
-      theme_minimal()+
-      theme(text = element_text(size = 10))+
-      theme(text = element_text(size = 10)) +
-      annotate("text", x = 0.97, y = dmax1*0.45, label = expression(M[2]), size = 3, hjust = 1) +
-      annotate("segment", x = 0.97, xend = 0.97, y = 1.5, yend = dmax1, arrow = arrow(length = unit(0.2, "cm")))
+   
     
-    derivative_2 <- ggplot(plot_data, aes(x = x1)) +
-      geom_line(aes(y = dv_player2), col = "red") +
-      labs(x = "x", y = expression(v[2] * "'" * (x)), title = "Player 2") +
-      theme_minimal()+
-      theme(text = element_text(size = 10))+
-      theme(text = element_text(size = 10)) +
-      annotate("text", x = 0.97, y = dmax2*0.45, label = expression(M[2]), size = 3, hjust = 1) +
-      annotate("segment", x = 0.97, xend = 0.97, y = 1.5, yend = dmax2, arrow = arrow(length = unit(0.2, "cm")))
+    plotL1 <- ggplot(plot_difference, aes(x = iter, y = L1)) +
+      geom_line(col = "blue") +
+      labs(
+        x = "Iteration",
+        y = expression(L[1]),
+        title = "L Player 1"
+      ) +
+      theme_minimal() +
+      theme(
+        text = element_text(size = 10, family = "Arial"),
+        axis.title.x = element_text(size = 10, face = "bold"),
+        axis.title.y = element_text(size = 12, face = "bold")
+      )
     
     
-    
+    plotL2 <- ggplot(plot_difference, aes(x = iter, y = L2)) +
+      geom_line(col = "red") +
+      labs(
+        x = "Iteration",
+        y = expression(L[2]),
+        title = "L Player 2"
+      ) +
+      theme_minimal() +
+      theme(
+        text = element_text(size = 10, family = "Arial"),
+        axis.title.x = element_text(size = 10, face = "bold"),
+        axis.title.y = element_text(size = 12, face = "bold")
+      )    
     # Convergence plot
     convergence_plot <- ggplot(plot_difference, aes(x = iter, y = difference)) +
       geom_line(col = "black") +
@@ -284,7 +312,7 @@ RABVITG2D <- function(N) {
       theme(text = element_text(size = 10))
     
     
-    top_row <- plot_grid(control_plot1, control_plot2, derivative_1, derivative_2, ncol = 4)
+    top_row <- plot_grid(control_plot1, control_plot2, plotL1, plotL2, ncol = 4)
     bottom_row <- plot_grid(convergence_plot, NULL, value_plot1, value_plot2, ncol = 4, rel_widths = c(0.5, 0, 0.25, 0.25))
     final_plot <- plot_grid(top_row, bottom_row, nrow = 2)
     
@@ -296,15 +324,20 @@ RABVITG2D <- function(N) {
     
     
     v0 <- v1
+    uold1<-k11
+    uold2<-k22
     
     its <- its + 1
   }
   
-  return(list(v0 = v0, k11 = k11, k22 = k22,its=its,dif=difference))
+  return(list(v0 = v0, k11 = k11, k22 = k22,its=its,dif=difference,x1=x1))
 }
 
 # Call the main function
 result <- RABVITG2D(8)
+
+
+
 
 
 
