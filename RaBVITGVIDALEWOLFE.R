@@ -1,5 +1,5 @@
 
-#RABVITG for a STOCHASTIC Linear Quadratic Model
+#RABVITG for a Vidale Wolfe Advertising Model
 # Load necessary libraries
 library(stats)
 library(ggplot2)
@@ -21,7 +21,7 @@ r1<-1
 r2<-1
 b2<-1
 delta<-0.5
-dt <- 0.01 #no converge 0.30
+dt <- 0.01 
 sigma<-0.25
 
 xmin <- 0.05
@@ -179,6 +179,9 @@ RABVITG2D <- function(N) {
   k22 <- numeric(N)
   v1 <- matrix(0, nrow = N, ncol = 2, byrow = TRUE)
   
+  L1<-0
+  L2<-0
+  
   while (dif > tol) {
     for (i in 1:N) {
       x01 <- x1[i]
@@ -191,8 +194,8 @@ RABVITG2D <- function(N) {
       errorg <- tolg + 1
       while (errorg > tolg & itsg < 25) {
         itsg <- itsg + 1
-        k1 <- optimize(valfun1, interval = c(0, 100), x01 = x01, x02=x02,u01 = u01, u02 = u02, x1 = x1, x2=x2,v0 = v0)$minimum
-        k2 <- optimize(valfun2, interval = c(0, 100), x01 = x01, x02=x02,u01 = u01, u02 = u02, x1 = x1, x2=x2,v0 = v0)$minimum
+        k1 <- optimize(valfun1, interval = c(0, 3), x01 = x01, x02=x02,u01 = u01, u02 = u02, x1 = x1, x2=x2,v0 = v0)$minimum
+        k2 <- optimize(valfun2, interval = c(0, 3), x01 = x01, x02=x02,u01 = u01, u02 = u02, x1 = x1, x2=x2,v0 = v0)$minimum
         policystar <- c(k1, k2)
         policyold <- c(u01, u02)
         errorg[itsg] <- max(abs(policystar - policyold))
@@ -216,27 +219,6 @@ RABVITG2D <- function(N) {
       ##########################################################################
     
     
-    # Define finite difference function for first derivative
-    finite_difference <- function(x, y) {
-      # Ensure x and y are sorted by x
-      ord <- order(x)
-      x <- x[ord]
-      y <- y[ord]
-      
-      # Compute differences
-      dx <- diff(x)
-      dy <- diff(y)
-      
-      # Compute derivative
-      dydx <- dy / dx
-      
-      # Compute midpoints
-      x_mid <- (x[-length(x)] + x[-1]) / 2
-      
-      return(data.frame(x_mid = x_mid, dydx = dydx))
-    }
-    
- 
     
     # Apply finite difference method to your data
     deriv1st <- central_difference(x1, v1[,1])
@@ -246,7 +228,44 @@ RABVITG2D <- function(N) {
     plot_data <- data.frame(x1 = x1, k11 = k11, k22 = k22, v1_player1 = v1[,1], v1_player2 = v1[,2],dv_player1=deriv1st,dv_player2=deriv2st)
     plot_difference<-data.frame(iter=seq(1,its),difference)
     # Control plots
+    max_index1 <- which.max(abs(plot_data$dv_player1))
+    max_index2 <- which.max(abs(plot_data$dv_player2))
+    dmax1<-abs(plot_data$dv_player1[max_index1])
+    dmax2<-abs(plot_data$dv_player2[max_index2])
+    xmax1<-x1[ max_index1]
+    xmax2<-x1[ max_index2]
     
+    L1[its]<-abs(max(diff(k11))/max(diff(uold1)))
+    L2[its]<-abs(max(diff(k22))/max(diff(uold2)))
+    
+    plotL1 <- ggplot(plot_difference, aes(x = iter, y = L1)) +
+      geom_line(col = "blue") +
+      labs(
+        x = "Iteration",
+        y = expression(L[1]),
+        title = "L Player 1"
+      ) +
+      theme_minimal() +
+      theme(
+        text = element_text(size = 10, family = "Arial"),
+        axis.title.x = element_text(size = 10, face = "bold"),
+        axis.title.y = element_text(size = 12, face = "bold")
+      )
+    
+    
+    plotL2 <- ggplot(plot_difference, aes(x = iter, y = L2)) +
+      geom_line(col = "red") +
+      labs(
+        x = "Iteration",
+        y = expression(L[2]),
+        title = "L Player 2"
+      ) +
+      theme_minimal() +
+      theme(
+        text = element_text(size = 10, family = "Arial"),
+        axis.title.x = element_text(size = 10, face = "bold"),
+        axis.title.y = element_text(size = 12, face = "bold")
+      )    
     
     control_plot1 <- ggplot(plot_data, aes(x = x1)) +
       geom_line(aes(y = k11), col = "blue") +
@@ -262,20 +281,6 @@ RABVITG2D <- function(N) {
       labs(x = "x", y = expression(u[2]), title = "Player 2") +
       theme_minimal()+
       theme(text = element_text(size = 10))
-    
-    # Derivative Value Function
-    derivative_1 <- ggplot(plot_data, aes(x = x1)) +
-      geom_line(aes(y = dv_player1), col = "blue") +
-      labs(x = "x", y = expression(v[1] * "'" * (x)), title = " Player 1") +
-      theme_minimal()+
-      theme(text = element_text(size = 10))
-      
-    derivative_2 <- ggplot(plot_data, aes(x = x1)) +
-      geom_line(aes(y = dv_player2), col = "red") +
-      labs(x = "x", y = expression(v[2] * "'" * (x)), title = "Player 2") +
-      theme_minimal()+
-      theme(text = element_text(size = 10))
-    
     
     # Convergence plot
     convergence_plot <- ggplot(plot_difference, aes(x = iter, y = difference)) +
@@ -304,7 +309,7 @@ RABVITG2D <- function(N) {
       theme(text = element_text(size = 10))
     
     
-    top_row <- plot_grid(control_plot1, control_plot2, derivative_1, derivative_2, ncol = 4)
+    top_row <- plot_grid(control_plot1, control_plot2, plotL1, plotL2, ncol = 4)
     bottom_row <- plot_grid(convergence_plot, NULL, value_plot1, value_plot2, ncol = 4, rel_widths = c(0.5, 0, 0.25, 0.25))
     final_plot <- plot_grid(top_row, bottom_row, nrow = 2)
     
@@ -319,36 +324,16 @@ RABVITG2D <- function(N) {
     v0 <- v1
     
     its <- its + 1
+    uold1<-k11
+    uold2<-k22
   }
   
-  return(list(v0 = v0, k11 = k11, k22 = k22,its=its,dif=difference))
+  return(list(v0 = v0, k11 = k11, k22 = k22,its=its,dif=difference,l1=L1,l2=L2))
 }
 
 # Call the main function
-result <- RABVITG2D(6)
+result <- RABVITG2D(8)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Access individual results from the list
-v0_result <- result$v0
-k11_result <- result$k11
-k22_result <- result$k22
-its_result<- result$its
-dif_result<-result$dif
-deriv1st <- predict(sm.spline(x1, v0_result[,1]), x1, 1) #V'(y)
-deriv2st <- predict(sm.spline(x1, v0_result[,2]), x1, 1)
 
 
 
